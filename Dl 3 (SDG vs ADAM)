@@ -1,0 +1,29 @@
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+x_train, x_test = x_train / 255.0 , x_test /255.0
+
+def build_model(optimizer):
+    m = tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=(28,28)),
+        tf.keras.layers.Dense(128, activation="relu"),
+        tf.keras.layers.Dense(10, activation="softmax")
+    ])
+
+    m.compile(optimizer=optimizer,loss ="sparse_categorical_crossentropy", metrics=["accuracy"])
+    return m
+
+sgd = build_model(tf.keras.optimizers.SGD(learning_rate=0.01))
+adam =build_model("adam")
+h1 = sgd.fit(x_train, y_train, epochs =3, validation_split=0.1, verbose =0)
+h2 = adam.fit(x_train, y_train, epochs = 3, validation_split=0.1, verbose =0)
+
+print("SGD test accuracy :", sgd.evaluate(x_test, y_test, verbose=0)[1])
+print("Adam test accuracy :", adam.evaluate(x_test, y_test, verbose=0)[1])
+plt.plot(h1.history["val_accuracy"], label = "SGD")
+plt.plot(h2.history["val_accuracy"], label = "Adam")
+plt.xlabel("Epoch")
+plt.ylabel("Validation accuracy")
+plt.legend()
+plt.show()
