@@ -1,0 +1,35 @@
+import tensorflow as tf
+import numpy as np
+
+url = "https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt"
+file_path = tf.keras.utils.get_file("shakespeare.txt", url)
+text = open(file_path, encoding="utf-8"). read().lower()
+
+chars = sorted(set(text))
+to_id = {c:i for i,c in enumerate(chars)}
+to_char = {i:c for i,c in enumerate(chars)}
+data = np.array([to_id[c] for c in text])
+
+length = 40
+X = np.array([data[i:i+length] for i in range(len(data)-length-1)])
+y = data[length+0:len(data)-1]
+X,y = X[:100000], y[:100000]
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Embedding(len(chars),64),
+    tf.keras.layers.LSTM(128),
+    tf.keras.layers.Dense(len(chars), activation="softmax")
+])
+model.compile(optimizer = "adam", loss = "sparse_categorical_crossentropy")
+model.fit(X,y, epochs = 2, batch_size =128)
+
+seed = "to be or not tobe"
+sequence = [to_id.get(c,0) for c in seed.lower()]
+generated = seed
+for _ in range(300):
+    x = np.array(sequence[-length:]).reshape(1,-1)
+    probs = model.predict(x, verbose=0)[0]
+    next_id = np.random.choice(len(chars), p=probs/ probs.sum())
+    sequence.append(next_id)
+    generated += to_char[next_id]
+print(generated)
