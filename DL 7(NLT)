@@ -1,0 +1,35 @@
+#code 1:
+from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
+from PIL import Image
+import torch
+import requests
+import os
+model = VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+feature_extractor = ViTImageProcessor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+tokenizer = AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+image_path = "test.jpg"
+if not os.path.exists(image_path):
+    print("'test.jpg' not found. Downloading a sample image...")
+    url = "https://raw.githubusercontent.com/pytorch/hub/master/images/dog.jpg"
+    image = Image.open(requests.get(url, stream=True).raw).convert("RGB")
+    image.save(image_path)
+else:
+    image = Image.open(image_path).convert("RGB")
+
+pixel_values = feature_extractor(images=image, return_tensors="pt").pixel_values.to(device)
+output_ids = model.generate(pixel_values, max_length=16, num_beams=4)
+preds = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+
+print("Generated caption:", preds[0].strip())
+
+#code 2:
+from transformers import pipeline
+from PIL import Image
+
+captioner = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
+image = Image.open("test.jpg").convert("RGB")
+result = captioner(image)
+print("Generated caption:", result[0]["generated_text"])
