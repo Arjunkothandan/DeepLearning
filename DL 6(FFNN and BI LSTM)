@@ -1,0 +1,49 @@
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/airline-passengers.csv"
+data = pd.read_csv(url)["Passengers"].values.reshape(-1,1)
+scaler = MinMaxScaler()
+data = scaler.fit_transform(data)
+
+X,y = [], []
+for i in range(12, len(data)):
+    X.append(data[i-12:i,0])
+    y.append(data[i,0])
+X,y = np.array(X), np.array(y)
+X_train, X_test = X[:-24] , X[-24:]
+y_train, y_test = y[:-24] , y[-24:]
+
+ff = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(12,)),
+    tf.keras.layers.Dense(32, activation = "relu"),
+    tf.keras.layers.Dense(1)
+])
+ff.compile(optimizer="adam", loss="mse")
+ff.fit(X_train, y_train, epochs = 50, verbose=0)
+
+bi = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(12,1)),
+    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(16)),
+    tf.keras.layers.Dense(1)
+])
+bi.compile(optimizer="adam" , loss ="mse")
+bi.fit(X_train[..., None], y_train, epochs=50, verbose=0)
+
+p1 = ff.predict(X_test, verbose=0)
+p2 = bi.predict(X_test[..., None], verbose=0)
+actual = scaler.inverse_transform(y_test.reshape(-1,1))
+p1,p2 = scaler.inverse_transform(p1), scaler.inverse_transform(p2)
+print("FFNN MSE:", np.mean((actual-p1)**2))
+print("BiLSTM MSE:", np.mean((actual-p2)**2))
+
+plt.plot(actual, label = "Actual")
+plt.plot(p1, label = "Feedforward")
+plt.plot(p2, label = "Bidirectional LSTM")
+plt.xlabel("Test Month")
+plt.ylabel("Passengers")
+plt.legend()
+plt.show()
