@@ -1,0 +1,70 @@
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+(x_train, _), _ = tf.keras.datasets.mnist.load_data()
+x_train = x_train.astype("float32").reshape(-1, 784) / 255.0
+latent = 2
+
+inputs = tf.keras.Input(shape=(784,))
+h = tf.keras.layers.Dense(128, activation="relu")(inputs)
+mean = tf.keras.layers.Dense(latent)(h)
+log_var = tf.keras.layers.Dense(latent)(h)
+
+def sample(args):
+    m, lv = args
+    eps = tf.random.normal(shape=tf.shape(m))
+    return m + tf.exp(0.5 * lv) * eps
+
+z = tf.keras.layers.Lambda(sample)([mean, log_var])
+encoder = tf.keras.Model(inputs, [mean, log_var, z])
+
+z_input = tf.keras.Input(shape=(latent,))
+d = tf.keras.layers.Dense(128, activation="relu")(z_input)
+outputs = tf.keras.layers.Dense(784, activation="sigmoid")(d)
+decoder = tf.keras.Model(z_input, outputs)
+
+class VAE(tf.keras.Model):
+    def __init__(self):
+        super().__init__()
+        self.encoder, self.decoder = encoder, decoder
+
+    def train_step(self, data):
+        with tf.GradientTape() as tape:
+            m, lv, z = self.encoder(data)
+            reconstruction = self.decoder(z)
+            bce = tf.keras.losses.binary_crossentropy(data, reconstruction)
+            recon_loss = tf.reduce_mean(
+    tf.reduce_sum(tf.reshape(bce, (tf.shape(bce)[0], -1)), axis=1)
+)
+            kl = -0.5 * tf.reduce_mean(
+                tf.reduce_sum(
+                     1 + lv - tf.square(m) - tf.exp(lv),
+                     axis=1
+                )
+            )
+            loss = recon_loss + kl
+        grads = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        return {"loss": loss}
+
+vae = VAE()
+vae.compile(optimizer="adam")
+vae.fit(x_train, epochs=5, batch_size=128)
+
+_,_, z = encoder(x_train[:10])
+reconstructed = decoder(z).numpy()
+plt.figure(figsize=(10,2))
+for i in range(10):
+    plt.subplot(2, 10, i+1)
+    plt.imshow(x_train[i].reshape(28,28), cmap="gray")
+plt.axis("off")
+plt.show()
+
+random_z = tf.random.normal((10, latent))
+generated = decoder(random_z).numpy()
+plt.figure(figsize=(10,2))
+for i in range(10):
+    plt.subplot(1,10,i+1)
+    plt.imshow(generated[i].reshape(28,28), cmap ="gray")
+plt.axis("off")
+plt.show()
